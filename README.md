@@ -58,6 +58,15 @@ Chạy lệnh trên Windows: `./lab.sh win 'Get-Service MSSQL*'` · Xem màn hì
 
 Lần đầu Windows tự tải và cài mất khoảng 20–60 phút.
 
+## CI
+
+Workflow `lab` chạy trên `ubuntu-latest` (có KVM), các bước: `base` → `snapshot` (chỉ khi chưa có cache) → `provision` → `tests`.
+
+- Lần đầu: ổ Windows đã cài xong (OpenSSH + .NET 3.5, **chưa có SQL**) được nén zstd và lưu vào Actions cache (`win10-base-v1-*`).
+- Các lần sau: khôi phục ổ đĩa và boot thẳng, bỏ qua bước tải + cài Windows. SQL 2008 R2, các bước của đề xuất và toàn bộ test vẫn chạy lại từ đầu.
+- Script, bộ cài và cấu hình WireGuard luôn được đồng bộ vào `C:\OEM` qua SSH mỗi lần chạy, nên sửa script không cần tạo lại cache.
+- Sửa `oem/install.bat` sẽ tự tạo cache mới; muốn ép tạo lại thì đổi `v1` trong key.
+
 ## Ghi chú
 
 - Khoá WireGuard, khoá SSH, mật khẩu SQL được sinh lúc chạy (`keys/`, `wg/`), không nằm trong repo.

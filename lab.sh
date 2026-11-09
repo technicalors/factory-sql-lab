@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Điều phối lab. Chạy local (Podman) hoặc CI (Docker):
 #   ./lab.sh all                 # toàn bộ: chuẩn bị → dựng → cài → test SP3 → vá TLS 1.2 → test lại
-#   ./lab.sh <bước> ...          # secrets | download | up | wait | provision | test <tên> | patch-tls12 | win '<lệnh PowerShell>' | down
+#   ./lab.sh <bước> ...          # secrets | download | up | wait | base | snapshot | provision | tests | win '<lệnh PowerShell>' | down
+# CI: base → (snapshot nếu chưa có cache ổ Windows) → provision → tests
 # Biến môi trường: CTR=podman|docker, COMPOSE="podman-compose"|"docker compose"
 set -euo pipefail
 cd "$(dirname "$0")"
 CTR=${CTR:-podman}
 COMPOSE=${COMPOSE:-podman-compose}
 RESULTS=results
+SUDO=${SUDO:-}            # CI (Docker chạy root) đặt SUDO=sudo để đọc/ghi windows-storage
+SNAPSHOT=cache/win-base.tar.zst
 mkdir -p "$RESULTS"
 
 log() { printf '\n\033[1;36m### %s\033[0m\n' "$*"; }
@@ -55,10 +58,46 @@ wait_windows() {
   echo "Hết thời gian chờ"; $CTR logs --tail 30 lab-windows; return 1
 }
 
+wait_oem() {
+  log "Chờ OEM install.bat (OpenSSH + .NET 3.5) xong"
+  for _ in $(seq 1 90); do
+    win "if (Select-String -Quiet -Path C:\\OEM\\install.log -Pattern done) { exit 0 } else { exit 1 }" && return 0
+    sleep 20
+  done
+  echo "install.bat chưa xong"; return 1
+}
+
+# Ổ Windows có thể đến từ cache (C:\OEM cũ) → luôn đồng bộ script, bộ cài, cấu hình WireGuard mới nhất
+sync_oem() {
+  log "Đồng bộ C:\\OEM (scripts, installers, factory.conf)"
+  lin scp -q -r -i /lab/keys/lab_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    /lab/oem/scripts /lab/oem/installers /lab/wg/factory.conf factory@172.30.0.20:C:/OEM/
+}
+
+base() { secrets; download; up; wait_windows; wait_oem; sync_oem; }
+
+# Tắt Windows sạch sẽ rồi nén ổ đĩa (chưa cài SQL) để CI lần sau bỏ qua bước tải + cài Windows
+snapshot() {
+  log "Tạo snapshot ổ Windows (chưa có SQL)"
+  win "powercfg -h off" || true
+  $CTR stop -t 240 lab-windows
+  mkdir -p cache
+  $SUDO tar --sparse -cf - --exclude='windows-storage/*.iso' --exclude='windows-storage/tmp' windows-storage keys wg \
+    | zstd -T0 -3 -q -o "$SNAPSHOT" -f
+  ls -lh "$SNAPSHOT"
+  $CTR start lab-windows
+  wait_windows
+}
+
+restore() {
+  [ -s "$SNAPSHOT" ] || { echo "không có $SNAPSHOT"; return 1; }
+  log "Khôi phục ổ Windows từ snapshot"
+  $SUDO tar -I zstd -xf "$SNAPSHOT"
+  rm -f "$SNAPSHOT"
+}
+
 provision() {
   local pw; pw=$(cat keys/sql-password)
-  log "Chờ OEM install.bat (OpenSSH + .NET 3.5) xong"
-  for _ in $(seq 1 60); do win "if (Select-String -Quiet -Path C:\\OEM\\install.log -Pattern done) { exit 0 } else { exit 1 }" && break; sleep 20; done
   log "Cài SQL Server 2008 R2 SP2 Express (cấu hình mặc định như nhà máy)"
   win "& C:\\OEM\\scripts\\10-install-sql2008r2-express.ps1"
   log "Cài SP3 (chưa có TLS 1.2)"
@@ -115,8 +154,7 @@ summary() {
   done
 }
 
-all() {
-  secrets; download; up; wait_windows; provision
+tests() {
   local rc=0
   test_phase 1-sp3-chua-tls12 || rc=1
   patch_tls12
@@ -124,6 +162,8 @@ all() {
   summary
   return $rc
 }
+
+all() { base; provision; tests; }
 
 cmd=${1:-all}; shift || true
 case $cmd in
@@ -133,7 +173,11 @@ case $cmd in
   up) up ;;
   down) down ;;
   wait) wait_windows ;;
+  base) base ;;
+  snapshot) snapshot ;;
+  restore) restore ;;
   provision) provision ;;
+  tests) tests ;;
   patch-tls12) patch_tls12 ;;
   test) test_phase "${1:-adhoc}" ;;
   summary) summary ;;

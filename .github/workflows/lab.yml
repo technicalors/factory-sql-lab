@@ -20,6 +20,7 @@ jobs:
       CPU_CORES: "4"
       RAM_SIZE: "6G"
       DISK_SIZE: "48G"
+      SUDO: sudo
     steps:
       - uses: actions/checkout@v4
 
@@ -42,8 +43,41 @@ jobs:
           path: oem/installers
           key: installers-${{ hashFiles('scripts/download-installers.sh') }}
 
-      - name: Chạy lab (dựng Windows 10 + SQL 2008 R2 Express, test trước/sau vá TLS 1.2)
-        run: ./lab.sh all
+      # Ổ Windows 10 đã cài xong (OpenSSH + .NET 3.5, CHƯA có SQL) — bỏ qua ~40 phút tải + cài Windows
+      - name: Khôi phục cache ổ Windows
+        id: wincache
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/win-base.tar.zst
+          key: win10-base-v1-${{ hashFiles('oem/install.bat') }}
+
+      - name: Giải nén ổ Windows
+        if: steps.wincache.outputs.cache-hit == 'true'
+        run: ./lab.sh restore
+
+      - name: Dựng lab + chờ Windows sẵn sàng
+        run: ./lab.sh base
+
+      - name: Tạo snapshot ổ Windows
+        if: steps.wincache.outputs.cache-hit != 'true'
+        run: ./lab.sh snapshot
+
+      - name: Lưu cache ổ Windows
+        if: steps.wincache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: cache/win-base.tar.zst
+          key: ${{ steps.wincache.outputs.cache-primary-key }}
+
+      - name: Xoá file snapshot (giải phóng ổ)
+        if: steps.wincache.outputs.cache-hit != 'true'
+        run: rm -f cache/win-base.tar.zst
+
+      - name: Cài SQL 2008 R2 Express + áp dụng đề xuất
+        run: ./lab.sh provision
+
+      - name: Test trước/sau vá TLS 1.2
+        run: ./lab.sh tests
 
       - name: Log khi lỗi
         if: failure()

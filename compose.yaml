@@ -45,6 +45,7 @@ services:
       - ./wg:/lab/wg:ro
       - ./tests:/lab/tests:ro
       - ./keys:/lab/keys:ro
+      - ./oem:/lab/oem:ro
     networks:
       internet:
         ipv4_address: 172.30.0.10
