@@ -1,0 +1,58 @@
+# Lab kiem thu de xuat: Linux Server <-WireGuard-> Windows 10 + SQL Server 2008 R2 Express (that)
+name: factory-sql-lab
+
+networks:
+  internet:            # gia lap Internet; may ao Windows nam sau NAT cua container dockur
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+services:
+  windows:
+    container_name: lab-windows
+    image: docker.io/dockurr/windows:latest
+    environment:
+      VERSION: "10"
+      RAM_SIZE: "${RAM_SIZE:-4G}"
+      CPU_CORES: "${CPU_CORES:-4}"
+      DISK_SIZE: "${DISK_SIZE:-64G}"
+      USERNAME: "factory"
+      PASSWORD: "factory-lab"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "127.0.0.1:8006:8006"   # xem man hinh Windows qua trinh duyet
+    volumes:
+      - ./windows-storage:/storage
+      - ./oem:/oem
+    networks:
+      internet:
+        ipv4_address: 172.30.0.20
+    stop_grace_period: 2m
+
+  linux-server:
+    container_name: lab-linux
+    build:
+      context: ./linux
+      dockerfile: Containerfile
+    image: localhost/factory-lab-linux:latest
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./wg:/lab/wg:ro
+      - ./tests:/lab/tests:ro
+      - ./keys:/lab/keys:ro
+    networks:
+      internet:
+        ipv4_address: 172.30.0.10
+
+  attacker:            # may bat ky tren Internet, dung de thu truy cap SQL truc tiep
+    container_name: lab-attacker
+    image: localhost/factory-lab-linux:latest
+    command: ["sleep", "infinity"]
+    networks:
+      internet:
+        ipv4_address: 172.30.0.66
