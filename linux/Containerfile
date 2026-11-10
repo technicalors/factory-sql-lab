@@ -3,7 +3,7 @@ FROM docker.io/library/debian:trixie
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates curl gnupg iproute2 iputils-ping netcat-openbsd nftables wireguard-tools \
-      openssh-client openssl freetds-bin tdsodbc unixodbc php-cli php-sybase php-odbc procps \
+      openssh-client openssl freetds-bin tdsodbc unixodbc php-cli php-mbstring php-sybase php-odbc procps \
  && curl -fsSL -o /tmp/ms.deb https://packages.microsoft.com/config/debian/13/packages-microsoft-prod.deb \
  && dpkg -i /tmp/ms.deb && rm /tmp/ms.deb \
  && apt-get update && ACCEPT_EULA=Y DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends msodbcsql18 mssql-tools18 \
