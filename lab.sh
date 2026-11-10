@@ -140,7 +140,7 @@ test_phase() {
     echo "  [INFO] gói bị firewall Linux chặn: $(lin nft list chain inet lab input | grep -o 'packets [0-9]*' | awk '{print $2}' | tail -1)"
 
     echo "== 7. Phía Windows"
-    win "Get-Service 'WireGuardTunnel`$factory','MSSQL`$SQLEXPRESS' | ForEach-Object { '  [INFO] ' + \$_.Name + ': ' + \$_.Status + ' / ' + \$_.StartType }; Get-NetConnectionProfile | ForEach-Object { '  [INFO] profile ' + \$_.InterfaceAlias + ': ' + \$_.NetworkCategory }"
+    win "Get-Service 'WireGuardTunnel\$factory','MSSQL\$SQLEXPRESS' | ForEach-Object { '  [INFO] ' + \$_.Name + ': ' + \$_.Status + ' / ' + \$_.StartType }; Get-NetConnectionProfile | ForEach-Object { '  [INFO] profile ' + \$_.InterfaceAlias + ': ' + \$_.NetworkCategory }"
     echo
     [ $rc -eq 0 ] && echo "KẾT LUẬN [$name]: ĐẠT" || echo "KẾT LUẬN [$name]: KHÔNG ĐẠT"
   } 2>&1 | tee "$out"

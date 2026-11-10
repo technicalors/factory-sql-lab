@@ -18,6 +18,7 @@ try {
     $db = new PDO("dblib:host=$server;dbname=FactoryDB;charset=UTF-8", 'ors_integration', $pw, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_TIMEOUT => 10,
+        PDO::ATTR_DEFAULT_STR_PARAM => PDO::PARAM_STR_NATL,   // gửi chuỗi dạng N'...' để không mất dấu tiếng Việt
     ]);
 } catch (PDOException $e) {
     check("Kết nối ($server)", false, $e->getMessage());
@@ -30,7 +31,7 @@ $code = 'ORS-' . bin2hex(random_bytes(4));
 $name = 'Thép tấm Đà Nẵng — ưu tiên';
 
 // CREATE
-$st = $db->prepare('INSERT INTO dbo.ProductionOrder (OrderCode, ProductName, Qty) VALUES (?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS int)');
+$st = $db->prepare('INSERT INTO dbo.ProductionOrder (OrderCode, ProductName, Qty) OUTPUT INSERTED.Id VALUES (?, ?, ?)');
 $st->execute([$code, $name, 10]);
 $id = (int) $st->fetchColumn();
 check('INSERT', $id > 0, "Id=$id");
