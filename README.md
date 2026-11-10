@@ -43,6 +43,10 @@ Các nhóm test:
 
 Kết quả ghi vào `results/*.txt` (CI: tab Summary và artifact `results`).
 
+## Kết quả kiểm chứng
+
+Lần chạy ngày 10/11/2026 **ĐẠT** cả trước và sau khi vá TLS 1.2 — chi tiết từng test: [`ket-qua/`](ket-qua/README.md).
+
 ## Chạy
 
 Yêu cầu: Linux có KVM, module `wireguard`, Podman + podman-compose (hoặc Docker), ~60 GB trống, ~8 GB RAM rảnh.
